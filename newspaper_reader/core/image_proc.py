@@ -70,8 +70,14 @@ def _wrap_perspective(
 def apply_manual_perspective(im: Image.Image, points: list[list[float]]) -> Image.Image:
     if len(points) != 4:
         raise ValueError("需要四个角点")
-    quad = _order_corners(np.array(points, dtype="float32"))
-    out, _, _ = _wrap_perspective(im, quad)
+    quad = np.array(points, dtype="float32")
+    if quad.shape != (4, 2) or not np.isfinite(quad).all():
+        raise ValueError("角点坐标无效")
+    if not cv2.isContourConvex(quad) or abs(cv2.contourArea(quad)) < 100:
+        raise ValueError("请按顺序框选四角，不能交叉或重合")
+    out, _, how = _wrap_perspective(im, quad)
+    if how != "quad":
+        raise ValueError("裁剪区域太小或过窄，请重新调整")
     return out
 
 

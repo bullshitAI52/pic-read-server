@@ -271,13 +271,16 @@ def _process(job_id: str, opts: dict) -> None:
                 job["stage"] = f"识别第 {i + 1}/{total} 页：{p['orig']}"
             _log(job, f"OCR {p['orig']}")
 
-            prep = image_proc.prepare_page(p["path"])
+            prep = ({"image": image_proc.scale_image(image_proc.load_image(p["path"]))}
+                    if p.get("crop") else image_proc.prepare_page(p["path"]))
             im = prep["image"]
             manual = int(p.get("rotate") or 0) % 360
             if manual:
                 # the user set the orientation in step 2 -> honour it, skip auto-upright
                 im = im.rotate(-manual, expand=True)
                 rot = manual
+            elif p.get("crop"):
+                rot = 0
             else:
                 im, rot = ocr_mod.upright(im)
             used_style = ""
@@ -572,6 +575,11 @@ def rotate_page(job_id: str, page_id: str, opts: Optional[RotateOptions] = None)
 
 @app.post("/api/job/{job_id}/page/{page_id}/crop")
 def crop_page(job_id: str, page_id: str, opts: CropOptions) -> dict:
+    with LOCK:
+        return _crop_page_locked(job_id, page_id, opts)
+
+
+def _crop_page_locked(job_id: str, page_id: str, opts: CropOptions) -> dict:
     page = _page_guard(job_id, page_id)
     im = _load_page_image(page)
     if im is None:
@@ -580,15 +588,35 @@ def crop_page(job_id: str, page_id: str, opts: CropOptions) -> dict:
         if len(opts.points) != 4 or any(len(p) != 2 for p in opts.points):
             raise ValueError("需要四个角点")
         w, h = im.size
-        points = [[max(0, min(w - 1, float(p[0]))), max(0, min(h - 1, float(p[1])))] for p in opts.points]
+        import math
+        if any(not math.isfinite(v) or not 0 <= v <= 1 for p in opts.points for v in p):
+            raise ValueError("角点必须为 0 到 1 的比例坐标")
+        points = [[p[0] * (w - 1), p[1] * (h - 1)] for p in opts.points]
         cropped = image_proc.apply_manual_perspective(im, points)
-        cropped.save(page["path"], format="JPEG", quality=95)
+        target = Path(page["path"]).parent / f"crop_{uuid.uuid4().hex}.png"
+        cropped.save(target, format="PNG")
+        page.setdefault("original_path", page["path"])
+        page["path"] = str(target)
+        page["revision"] = uuid.uuid4().hex
         page["crop"] = points
         page["rotate"] = 0
-        thumb = _thumb_image(cropped, f"{job_id}_{page_id}_crop", 520)
+        thumb = _thumb_image(cropped, f"{job_id}_{page_id}_{page['revision']}", 520)
+        page["thumb"] = thumb
         return {"ok": True, "thumb": thumb or page.get("thumb", "")}
     except Exception as exc:
         raise HTTPException(400, f"透视裁剪失败：{exc}") from exc
+
+
+@app.post("/api/job/{job_id}/page/{page_id}/reset")
+def reset_page(job_id: str, page_id: str) -> dict:
+    with LOCK:
+        page = _page_guard(job_id, page_id)
+        page["path"] = page.get("original_path", page["path"])
+        page.pop("crop", None)
+        page["rotate"] = 0
+        page["revision"] = uuid.uuid4().hex
+        page["thumb"] = _thumb_image(_load_page_image(page), f"{job_id}_{page_id}_{page['revision']}")
+        return {"ok": True, "thumb": page["thumb"]}
 
 
 @app.get("/api/job/{job_id}/pageimg/{page_id}")
@@ -599,7 +627,7 @@ def job_page_image(job_id: str, page_id: str, w: int = 1600) -> FileResponse:
             raise HTTPException(404, "图片不存在")
         angle = int(page.get("rotate") or 0) % 360
     width = max(480, min(int(w), 2400))
-    stem = f"big_{job_id}_{page_id}_r{angle}_w{width}"
+    stem = f"big_{job_id}_{page_id}_{page.get('revision', '0')}_r{angle}_w{width}"
     out = PREVIEW_THUMBS / (stem + ".jpg")
     if not out.exists():
         im = _load_page_image(page)

@@ -201,6 +201,7 @@ function openView(id) {
 }
 
 function closeView() {
+  if (viewBusy) return;
   if (!viewModal) return;
   viewModal.classList.add("hidden");
   viewId = null;
@@ -224,13 +225,14 @@ function loadView() {
     img.classList.remove("loading");
     $("viewSub").textContent = "图片载入失败，请关闭后重试";
   };
-  img.src = `/api/job/${state.jobId}/pageimg/${p.id}?w=1600&v=${angle}`;
+  $("cropLayer").classList.add("hidden");
+  img.src = `/api/job/${state.jobId}/pageimg/${p.id}?w=1600&v=${Date.now()}`;
 }
 
 function initCrop() {
   const img = $("viewImg"), layer = $("cropLayer");
   if (!img.naturalWidth) return;
-  const w = img.naturalWidth, h = img.naturalHeight, m = 0.04;
+  const w = img.naturalWidth, h = img.naturalHeight, m = 0;
   cropPoints = [[w*m,h*m],[w*(1-m),h*m],[w*(1-m),h*(1-m)],[w*m,h*(1-m)]];
   layer.classList.remove("hidden");
   renderCrop();
@@ -253,13 +255,15 @@ function cropPointer(e) {
   renderCrop();
 }
 
-async function saveCrop() {
+async function saveCrop(reset = false) {
   const i = pageIndexOf(viewId); if (i < 0 || viewBusy) return;
   viewBusy = true;
   try {
-    const r=await fetch(`/api/job/${state.jobId}/page/${viewId}/crop`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({points:cropPoints})});
+    const img = $("viewImg");
+    const points = cropPoints.map(([x,y]) => [x/img.naturalWidth,y/img.naturalHeight]);
+    const r=await fetch(`/api/job/${state.jobId}/page/${viewId}/${reset ? "reset" : "crop"}`,{method:"POST",headers:{"Content-Type":"application/json"},body:reset ? undefined : JSON.stringify({points})});
     const j=await r.json(); if(!r.ok) throw new Error(j.detail||"裁剪失败");
-    state.pages[i].rotate=0; state.pages[i].thumb=j.thumb||state.pages[i].thumb; updateCardThumb(state.pages[i]); invalidateResults(); loadView();
+    state.pages[i].rotate=0; state.pages[i].thumb=j.thumb||state.pages[i].thumb; updateCardThumb(state.pages[i]); invalidateResults(); viewBusy=false; loadView();
   } catch(e) { $("viewSub").textContent=e.message; } finally { viewBusy=false; }
 }
 
@@ -267,7 +271,9 @@ document.querySelectorAll(".crop-handle").forEach(el=>el.addEventListener("point
 $("cropLayer").addEventListener("pointermove", cropPointer);
 $("cropLayer").addEventListener("pointerup", ()=>{cropDragging=-1;});
 $("cropLayer").addEventListener("pointercancel", ()=>{cropDragging=-1;});
-$("cropLayer").addEventListener("dblclick", saveCrop);
+$("cropSave").addEventListener("click", () => saveCrop(false));
+$("cropReset").addEventListener("click", () => saveCrop(true));
+window.addEventListener("resize", () => { if (isViewOpen() && cropPoints.length) renderCrop(); });
 
 function stepView(delta) {
   if (viewBusy) return;
