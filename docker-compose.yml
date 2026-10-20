@@ -1,0 +1,12 @@
+services:
+  pic-read:
+    build: .
+    container_name: pic-read
+    ports:
+      - "8765:8765"
+    volumes:
+      - pic_read_data:/data/newspaper_reader
+    restart: unless-stopped
+
+volumes:
+  pic_read_data:
