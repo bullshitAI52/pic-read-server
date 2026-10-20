@@ -187,6 +187,8 @@ function renderPages() {
 const viewModal = $("viewModal");
 let viewId = null;
 let viewBusy = false;
+let cropPoints = [];
+let cropDragging = -1;
 
 const isViewOpen = () => !!viewModal && !viewModal.classList.contains("hidden");
 const pageIndexOf = (id) => state.pages.findIndex((p) => p.id === id);
@@ -217,13 +219,55 @@ function loadView() {
   $("viewNext").disabled = i >= n - 1 || viewBusy;
   const img = $("viewImg");
   img.classList.add("loading");
-  img.onload = () => img.classList.remove("loading");
+  img.onload = () => { img.classList.remove("loading"); initCrop(); };
   img.onerror = () => {
     img.classList.remove("loading");
     $("viewSub").textContent = "图片载入失败，请关闭后重试";
   };
   img.src = `/api/job/${state.jobId}/pageimg/${p.id}?w=1600&v=${angle}`;
 }
+
+function initCrop() {
+  const img = $("viewImg"), layer = $("cropLayer");
+  if (!img.naturalWidth) return;
+  const w = img.naturalWidth, h = img.naturalHeight, m = 0.04;
+  cropPoints = [[w*m,h*m],[w*(1-m),h*m],[w*(1-m),h*(1-m)],[w*m,h*(1-m)]];
+  layer.classList.remove("hidden");
+  renderCrop();
+}
+
+function renderCrop() {
+  const img = $("viewImg"), layer = $("cropLayer"), box = $("cropBox");
+  const ir = img.getBoundingClientRect(), sr = $("viewStage").getBoundingClientRect();
+  layer.style.left = `${ir.left - sr.left}px`; layer.style.top = `${ir.top - sr.top}px`;
+  layer.style.width = `${ir.width}px`; layer.style.height = `${ir.height}px`;
+  const pts = cropPoints.map(([x,y]) => [x/img.naturalWidth*100, y/img.naturalHeight*100]);
+  box.style.clipPath = `polygon(${pts.map(p => p.join("% ")).join("%,")}%)`;
+  ["tl","tr","br","bl"].forEach((c,i) => { const el=layer.querySelector(`.${c}`); el.style.left=`${pts[i][0]}%`; el.style.top=`${pts[i][1]}%`; });
+}
+
+function cropPointer(e) {
+  if (cropDragging < 0) return;
+  const img = $("viewImg"), r = img.getBoundingClientRect();
+  cropPoints[cropDragging] = [Math.max(0, Math.min(img.naturalWidth, (e.clientX-r.left)/r.width*img.naturalWidth)), Math.max(0, Math.min(img.naturalHeight, (e.clientY-r.top)/r.height*img.naturalHeight))];
+  renderCrop();
+}
+
+async function saveCrop() {
+  const i = pageIndexOf(viewId); if (i < 0 || viewBusy) return;
+  viewBusy = true;
+  try {
+    const r=await fetch(`/api/job/${state.jobId}/page/${viewId}/crop`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({points:cropPoints})});
+    const j=await r.json(); if(!r.ok) throw new Error(j.detail||"裁剪失败");
+    state.pages[i].rotate=0; state.pages[i].thumb=j.thumb||state.pages[i].thumb; updateCardThumb(state.pages[i]); invalidateResults(); loadView();
+  } catch(e) { $("viewSub").textContent=e.message; } finally { viewBusy=false; }
+}
+
+document.querySelectorAll(".crop-handle").forEach(el=>el.addEventListener("pointerdown",e=>{e.preventDefault(); cropDragging=Number(el.dataset.corner); el.setPointerCapture(e.pointerId);}));
+$("cropLayer").addEventListener("pointermove", cropPointer);
+$("cropLayer").addEventListener("pointerup", ()=>{cropDragging=-1;});
+$("cropLayer").addEventListener("pointercancel", ()=>{cropDragging=-1;});
+$("cropLayer").addEventListener("dblclick", saveCrop);
 
 function stepView(delta) {
   if (viewBusy) return;

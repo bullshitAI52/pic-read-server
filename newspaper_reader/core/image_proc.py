@@ -67,6 +67,14 @@ def _wrap_perspective(
     return out, (0, 0, width, height), "quad"
 
 
+def apply_manual_perspective(im: Image.Image, points: list[list[float]]) -> Image.Image:
+    if len(points) != 4:
+        raise ValueError("需要四个角点")
+    quad = _order_corners(np.array(points, dtype="float32"))
+    out, _, _ = _wrap_perspective(im, quad)
+    return out
+
+
 def _margin_ok(box: Tuple[int, int, int, int], w: int, h: int, min_ratio: float = 0.05) -> bool:
     x0, y0, x1, y1 = box
     if (x1 - x0) < w * 0.5 or (y1 - y0) < h * 0.5:

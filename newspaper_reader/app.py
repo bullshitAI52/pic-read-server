@@ -499,6 +499,10 @@ class RotateOptions(BaseModel):
     angle: int = 0
 
 
+class CropOptions(BaseModel):
+    points: List[List[float]]
+
+
 class OrderOptions(BaseModel):
     ids: List[str] = []
 
@@ -564,6 +568,27 @@ def rotate_page(job_id: str, page_id: str, opts: Optional[RotateOptions] = None)
         "thumb": thumb or page.get("thumb", ""),
         "img": f"/api/job/{job_id}/pageimg/{page_id}",
     }
+
+
+@app.post("/api/job/{job_id}/page/{page_id}/crop")
+def crop_page(job_id: str, page_id: str, opts: CropOptions) -> dict:
+    page = _page_guard(job_id, page_id)
+    im = _load_page_image(page)
+    if im is None:
+        raise HTTPException(404, "图片读取失败")
+    try:
+        if len(opts.points) != 4 or any(len(p) != 2 for p in opts.points):
+            raise ValueError("需要四个角点")
+        w, h = im.size
+        points = [[max(0, min(w - 1, float(p[0]))), max(0, min(h - 1, float(p[1])))] for p in opts.points]
+        cropped = image_proc.apply_manual_perspective(im, points)
+        cropped.save(page["path"], format="JPEG", quality=95)
+        page["crop"] = points
+        page["rotate"] = 0
+        thumb = _thumb_image(cropped, f"{job_id}_{page_id}_crop", 520)
+        return {"ok": True, "thumb": thumb or page.get("thumb", "")}
+    except Exception as exc:
+        raise HTTPException(400, f"透视裁剪失败：{exc}") from exc
 
 
 @app.get("/api/job/{job_id}/pageimg/{page_id}")

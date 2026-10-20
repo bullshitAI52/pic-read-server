@@ -140,11 +140,18 @@
     <div class="view-stage" id="viewStage">
       <button class="view-arrow left" id="viewPrev" type="button" aria-label="上一张">‹</button>
       <img id="viewImg" alt="图片预览">
+      <div class="crop-layer hidden" id="cropLayer">
+        <div class="crop-box" id="cropBox"></div>
+        <button class="crop-handle tl" data-corner="0" type="button" aria-label="左上角"></button>
+        <button class="crop-handle tr" data-corner="1" type="button" aria-label="右上角"></button>
+        <button class="crop-handle br" data-corner="2" type="button" aria-label="右下角"></button>
+        <button class="crop-handle bl" data-corner="3" type="button" aria-label="左下角"></button>
+      </div>
       <button class="view-arrow right" id="viewNext" type="button" aria-label="下一张">›</button>
     </div>
     <div class="view-foot">
       <span id="viewPos"></span>
-      <span class="view-tip">← → 切换图片 · 旋转会保存并影响转换结果 · Esc 关闭</span>
+      <span class="view-tip">← → 切换图片 · 拖动四角，双击裁剪 · 旋转会保存并影响转换结果 · Esc 关闭</span>
     </div>
   </div>
 </div>
