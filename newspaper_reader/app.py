@@ -595,6 +595,16 @@ def _crop_page_locked(job_id: str, page_id: str, opts: CropOptions) -> dict:
         cropped = image_proc.apply_manual_perspective(im, points)
         target = Path(page["path"]).parent / f"crop_{uuid.uuid4().hex}.png"
         cropped.save(target, format="PNG")
+        share_dir = config.RUNTIME_DIR / "shared_images"
+        share_dir.mkdir(parents=True, exist_ok=True)
+        for old in share_dir.glob("*.png"):
+            if time.time() - old.stat().st_mtime > 7 * 86400:
+                old.unlink(missing_ok=True)
+        token = uuid.uuid4().hex
+        shared = share_dir / f"{token}.png"
+        shutil.copyfile(target, shared)
+        page["shared_image"] = {"url": f"/api/images/{token}", "width": cropped.width,
+                                "height": cropped.height, "bytes": shared.stat().st_size}
         page.setdefault("original_path", page["path"])
         page["path"] = str(target)
         page["revision"] = uuid.uuid4().hex
@@ -602,7 +612,7 @@ def _crop_page_locked(job_id: str, page_id: str, opts: CropOptions) -> dict:
         page["rotate"] = 0
         thumb = _thumb_image(cropped, f"{job_id}_{page_id}_{page['revision']}", 520)
         page["thumb"] = thumb
-        return {"ok": True, "thumb": thumb or page.get("thumb", "")}
+        return {"ok": True, "thumb": thumb or page.get("thumb", ""), "shared_image": page["shared_image"]}
     except Exception as exc:
         raise HTTPException(400, f"透视裁剪失败：{exc}") from exc
 
@@ -613,10 +623,23 @@ def reset_page(job_id: str, page_id: str) -> dict:
         page = _page_guard(job_id, page_id)
         page["path"] = page.get("original_path", page["path"])
         page.pop("crop", None)
+        page.pop("shared_image", None)
         page["rotate"] = 0
         page["revision"] = uuid.uuid4().hex
         page["thumb"] = _thumb_image(_load_page_image(page), f"{job_id}_{page_id}_{page['revision']}")
         return {"ok": True, "thumb": page["thumb"]}
+
+
+@app.get("/api/images/{token}")
+def shared_image(token: str, download: bool = False) -> FileResponse:
+    if len(token) != 32 or any(c not in "0123456789abcdef" for c in token):
+        raise HTTPException(404, "图片不存在")
+    path = config.RUNTIME_DIR / "shared_images" / f"{token}.png"
+    if not path.is_file() or time.time() - path.stat().st_mtime > 7 * 86400:
+        raise HTTPException(404, "图片不存在或链接已过期")
+    return FileResponse(path, media_type="image/png",
+                        filename="cropped-hd.png" if download else None,
+                        headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/job/{job_id}/pageimg/{page_id}")

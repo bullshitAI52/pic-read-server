@@ -151,6 +151,14 @@
       </div>
       <button class="view-arrow right" id="viewNext" type="button" aria-label="下一张">›</button>
     </div>
+    <div class="view-foot hidden" id="imageShare">
+      <span id="imageShareInfo"></span>
+      <input id="imageShareUrl" readonly aria-label="高清图片链接" style="width:100%">
+      <button class="btn primary small" id="imageCopy" type="button">复制图片链接</button>
+      <a class="btn small" id="imageDownload" download>下载高清图片</a>
+      <span>链接有效期 7 天，获得链接的人可查看图片。</span>
+      <span id="imageCopyStatus" role="status"></span>
+    </div>
     <div class="view-foot">
       <span id="viewPos"></span>
       <span class="view-tip">拖动四角后点“确认裁剪” · 可恢复原图 · Esc 关闭</span>

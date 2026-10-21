@@ -212,6 +212,7 @@ function loadView() {
   if (i < 0) return closeView();
   const p = state.pages[i];
   const n = state.pages.length;
+  showImageShare(p);
   const angle = ((Number(p.rotate) || 0) % 360 + 360) % 360;
   $("viewTitle").textContent = p.orig || p.name || "图片预览";
   $("viewSub").textContent = `第 ${i + 1} / ${n} 张` + (angle ? ` · 已旋转 ${angle}°` : "");
@@ -263,6 +264,7 @@ async function saveCrop(reset = false) {
     const points = cropPoints.map(([x,y]) => [x/img.naturalWidth,y/img.naturalHeight]);
     const r=await fetch(`/api/job/${state.jobId}/page/${viewId}/${reset ? "reset" : "crop"}`,{method:"POST",headers:{"Content-Type":"application/json"},body:reset ? undefined : JSON.stringify({points})});
     const j=await r.json(); if(!r.ok) throw new Error(j.detail||"裁剪失败");
+    state.pages[i].shared_image = j.shared_image || null;
     state.pages[i].rotate=0; state.pages[i].thumb=j.thumb||state.pages[i].thumb; updateCardThumb(state.pages[i]); invalidateResults(); viewBusy=false; loadView();
   } catch(e) { $("viewSub").textContent=e.message; } finally { viewBusy=false; }
 }
@@ -274,6 +276,32 @@ $("cropLayer").addEventListener("pointercancel", ()=>{cropDragging=-1;});
 $("cropSave").addEventListener("click", () => saveCrop(false));
 $("cropReset").addEventListener("click", () => saveCrop(true));
 window.addEventListener("resize", () => { if (isViewOpen() && cropPoints.length) renderCrop(); });
+
+function showImageShare(page) {
+  const share = page.shared_image;
+  $("imageShare").classList.toggle("hidden", !share);
+  $("imageCopyStatus").textContent = "";
+  if (!share) return;
+  $("imageShareUrl").value = new URL(share.url, location.origin).href;
+  $("imageDownload").href = share.url + "?download=true";
+  $("imageShareInfo").textContent = `已保存高清 PNG · ${share.width} × ${share.height} 像素 · ${(share.bytes / 1048576).toFixed(2)} MB`;
+}
+
+$("imageCopy").addEventListener("click", async () => {
+  const field = $("imageShareUrl");
+  let copied = false;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(field.value);
+      copied = true;
+    }
+  } catch (_) {}
+  if (!copied) {
+    field.focus(); field.select(); field.setSelectionRange(0, field.value.length);
+    try { copied = document.execCommand("copy"); } catch (_) {}
+  }
+  $("imageCopyStatus").textContent = copied ? "链接已复制" : "请长按上方链接，选择复制";
+});
 
 function stepView(delta) {
   if (viewBusy) return;
