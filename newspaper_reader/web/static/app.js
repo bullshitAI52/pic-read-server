@@ -56,13 +56,13 @@ async function checkHealth() {
   try {
     const r = await fetch("/api/health");
     const j = await r.json();
-    if (j.ok && j.tesseract) {
-      b.textContent = `识别引擎就绪 · ${j.lang}`;
+    if (j.ok) {
+      b.textContent = "图片服务就绪";
       b.className = "badge ok";
     } else {
-      b.textContent = "未找到识别引擎（Tesseract）";
+      b.textContent = "图片服务异常";
       b.className = "badge bad";
-      b.title = "未检测到 Tesseract OCR，转换无法进行。请检查安装路径（TESSERACT_CMD）后重试。";
+      b.title = "请稍后刷新重试";
     }
   } catch (e) {
     b.textContent = "服务异常";

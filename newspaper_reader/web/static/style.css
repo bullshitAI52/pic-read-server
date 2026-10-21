@@ -144,6 +144,7 @@ main{max-width:1280px;margin:0 auto;padding:20px 28px 60px}
 
 /* image viewer */
 .view-box{width:min(1040px,96vw)}
+#convertBtn,#libBtn,#libModal,#resultPanel,#progressWrap,#logBox{display:none!important}
 .view-stage{position:relative;
   position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;
   gap:10px;padding:14px;background:#1c1913;overflow:auto;

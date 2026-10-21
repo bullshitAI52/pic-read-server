@@ -512,6 +512,7 @@ class OrderOptions(BaseModel):
 
 @app.post("/api/convert/{job_id}")
 def convert(job_id: str, opts: Optional[ConvertOptions] = None) -> dict:
+    raise HTTPException(410, "PDF 转换功能已取消，请裁剪后下载高清图片")
     with LOCK:
         job = JOBS.get(job_id)
         if not job:
