@@ -4,6 +4,10 @@
 
 本次仅同步到独立分支 `feature/crop-assist`。没有部署 VPS、合并主分支、创建版本标签或替换已有安装包。原版与新分支分别保留。
 
+纯浏览器版：[https://bullshitai52.github.io/pic-read-server/](https://bullshitai52.github.io/pic-read-server/)
+
+网页文件位于 `pages/`，由 `.github/workflows/pages.yml` 在本分支更新时自动发布。网页版使用浏览器内的 OpenCV.js，不连接本项目的 FastAPI 接口；图片不会上传 VPS。首次打开需要联网加载 OpenCV.js，组件加载完成后即可在当前页面本地处理图片。
+
 ## 新增了什么
 
 ### 1. 角点放大镜
@@ -43,6 +47,7 @@
 - Node 前端逻辑测试通过：识别成功、无结果、无效结果、手动输入/切图后的旧结果忽略、放大镜开关和结束拖动清理。
 - JavaScript 语法、Python 编译与 Git 空白检查通过。
 - 尚未完成真实手机触摸、真实拍摄样本集以及 Windows/Mac 安装包的人工界面验证。这次未重新打包安装程序。
+- GitHub Pages 版已在本地浏览器确认页面正常显示、OpenCV.js 能加载且控制项状态正常；发布后的 HTTPS 页面仍需在 Actions 完成后再次核验。
 
 复现：
 
@@ -57,6 +62,8 @@ Python 测试需要项目运行依赖及 `httpx`，前端逻辑测试只需要 N
 ## English
 
 This update lives only on `feature/crop-assist`. It is not deployed to the VPS, merged into `main`, tagged, or included in existing release installers.
+
+Live browser edition: [https://bullshitai52.github.io/pic-read-server/](https://bullshitai52.github.io/pic-read-server/). It is deployed from `pages/` by GitHub Actions. Image processing runs locally in the browser with OpenCV.js and does not call the project's FastAPI server. An internet connection is required to load OpenCV.js when opening the page.
 
 - **Corner magnifier:** an optional close-up with crosshairs appears while dragging a corner, at roughly 3× the displayed image scale. It moves to the opposite side and disappears when dragging ends. It does not upscale the exported image.
 - **Automatic corner suggestions:** an optional default-on setting detects a large convex quadrilateral when an uncropped image opens. A separate button reruns detection. Users can still adjust every corner manually and must explicitly confirm the crop.

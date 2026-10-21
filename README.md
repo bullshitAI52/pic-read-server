@@ -1,6 +1,6 @@
 # 高清图片裁剪与分享
 
-> **独立功能分支：`feature/crop-assist`** — 新增可开关的角点放大镜、自动框选四角（可手动微调）。未部署到 VPS，未合并到 `main`，未更新原有安装包。具体改动、使用方法和测试范围见 [裁剪辅助更新说明 / Crop assistance changelog](CROP_ASSIST_CHANGELOG.md)。本页 Releases 下载链接仍对应此前正式版，不包含本分支新功能。
+> **独立功能分支：`feature/crop-assist`** — 新增可开关的角点放大镜、自动框选四角（可手动微调），并提供[纯浏览器 GitHub Pages 版](https://bullshitai52.github.io/pic-read-server/)。未部署到 VPS，未合并到 `main`，未更新原有安装包。具体改动、使用方法和测试范围见 [裁剪辅助更新说明 / Crop assistance changelog](CROP_ASSIST_CHANGELOG.md)。本页 Releases 下载链接仍对应此前正式版，不包含本分支新功能。
 
 > **当前版本已取消 PDF 转换。** 使用流程：上传图片 → 点击缩略图 → 拖动四角 → 确认裁剪 → 复制图片链接或下载高清 PNG。无需 OCR 或 PDF 转换。
 >

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="description" content="纯浏览器高清图片四角裁剪与透视拉正工具">
+  <title>高清图片裁剪 · 纯网页版</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div><span class="badge">GitHub Pages · 本机处理</span><h1>高清图片裁剪</h1></div>
+      <p>选择照片 → 自动找纸张 → 拖动四角微调 → 拉正并下载高清 PNG</p>
+    </header>
+
+    <section class="panel controls" aria-label="操作区">
+      <label class="file-button">选择图片<input id="fileInput" type="file" accept="image/*"></label>
+      <button id="detectBtn" disabled>重新识别四角</button>
+      <button id="rotateBtn" disabled>顺时针旋转</button>
+      <button id="cropBtn" class="primary" disabled>确认裁剪</button>
+      <button id="resetBtn" disabled>恢复原图</button>
+      <label><input id="autoDetect" type="checkbox" checked> 自动框选四角</label>
+      <label><input id="magnifierEnabled" type="checkbox" checked> 角点放大镜</label>
+    </section>
+
+    <p id="status" class="status" role="status" aria-live="polite">正在加载图片处理组件…</p>
+
+    <section class="workspace">
+      <div id="stage" class="stage empty">
+        <canvas id="sourceCanvas"></canvas>
+        <svg id="cropOverlay" class="hidden" aria-label="裁剪区域">
+          <polygon id="cropPolygon"></polygon>
+          <circle data-corner="0" r="14" aria-label="左上角"></circle>
+          <circle data-corner="1" r="14" aria-label="右上角"></circle>
+          <circle data-corner="2" r="14" aria-label="右下角"></circle>
+          <circle data-corner="3" r="14" aria-label="左下角"></circle>
+        </svg>
+        <canvas id="magnifier" class="magnifier hidden" width="240" height="240"></canvas>
+        <div id="emptyHint">选择一张手机照片开始处理</div>
+      </div>
+
+      <aside id="resultPanel" class="result hidden">
+        <h2>裁剪结果</h2>
+        <canvas id="resultCanvas"></canvas>
+        <div class="result-actions">
+          <span id="resultInfo"></span>
+          <button id="downloadBtn" class="primary">下载高清 PNG</button>
+        </div>
+      </aside>
+    </section>
+
+    <footer>
+      <p>图片只在当前浏览器中处理，不上传服务器。自动识别可能受背景、反光或弯曲纸张影响，请检查四角后再确认。</p>
+      <p><a href="https://github.com/bullshitAI52/pic-read-server/tree/feature/crop-assist">源代码与更新说明</a></p>
+    </footer>
+  </main>
+  <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
