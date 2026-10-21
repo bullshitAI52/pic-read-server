@@ -576,6 +576,17 @@ def rotate_page(job_id: str, page_id: str, opts: Optional[RotateOptions] = None)
     }
 
 
+@app.post("/api/job/{job_id}/page/{page_id}/detect-corners")
+def detect_corners(job_id: str, page_id: str) -> dict:
+    with LOCK:
+        page = _page_guard(job_id, page_id)
+        im = _load_page_image(page)
+        if im is None:
+            raise HTTPException(404, "图片读取失败")
+        points = image_proc.detect_paper_corners(im)
+    return {"ok": True, "detected": points is not None, "points": points}
+
+
 @app.post("/api/job/{job_id}/page/{page_id}/crop")
 def crop_page(job_id: str, page_id: str, opts: CropOptions) -> dict:
     with LOCK:

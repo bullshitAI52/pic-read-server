@@ -81,6 +81,35 @@ def apply_manual_perspective(im: Image.Image, points: list[list[float]]) -> Imag
     return out
 
 
+def detect_paper_corners(im: Image.Image) -> list[list[float]] | None:
+    """Suggest normalized TL/TR/BR/BL corners; never crop or modify the source."""
+    small = im.convert("RGB")
+    small.thumbnail((1300, 1300), Image.Resampling.LANCZOS)
+    w, h = small.size
+    if min(w, h) < 40:
+        return None
+    gray = cv2.GaussianBlur(cv2.cvtColor(np.asarray(small), cv2.COLOR_RGB2GRAY), (5, 5), 0)
+    edges = cv2.Canny(gray, 40, 120)
+    edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
+    contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    for contour in sorted(contours, key=cv2.contourArea, reverse=True)[:30]:
+        area = cv2.contourArea(contour) / (w * h)
+        if not 0.20 <= area <= 0.98:
+            continue
+        quad = cv2.approxPolyDP(contour, 0.02 * cv2.arcLength(contour, True), True)
+        if len(quad) != 4 or not cv2.isContourConvex(quad):
+            continue
+        # Angular ordering avoids duplicate corners for diamond-shaped contours.
+        pts = quad.reshape(4, 2).astype(np.float32)
+        center = pts.mean(axis=0)
+        pts = pts[np.argsort(np.arctan2(pts[:, 1] - center[1], pts[:, 0] - center[0]))]
+        pts = np.roll(pts, -int(np.argmin(pts.sum(axis=1))), axis=0)
+        if min(np.linalg.norm(pts[i] - pts[(i + 1) % 4]) for i in range(4)) < min(w, h) * 0.1:
+            continue
+        return np.clip(pts / np.array([w - 1, h - 1]), 0, 1).tolist()
+    return None
+
+
 def _margin_ok(box: Tuple[int, int, int, int], w: int, h: int, min_ratio: float = 0.05) -> bool:
     x0, y0, x1, y1 = box
     if (x1 - x0) < w * 0.5 or (y1 - y0) < h * 0.5:

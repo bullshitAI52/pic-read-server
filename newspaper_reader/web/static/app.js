@@ -199,6 +199,62 @@ let viewId = null;
 let viewBusy = false;
 let cropPoints = [];
 let cropDragging = -1;
+let cropPointerId = null;
+let cropVersion = 0;
+let detectRequest = 0;
+
+function stopCropDrag() {
+  cropDragging = -1;
+  cropPointerId = null;
+  $("cropMagnifier").classList.add("hidden");
+}
+
+function renderMagnifier() {
+  const canvas = $("cropMagnifier"), img = $("viewImg");
+  if (cropDragging < 0 || !$("cropMagnifyEnabled").checked) {
+    canvas.classList.add("hidden");
+    return;
+  }
+  const [x, y] = cropPoints[cropDragging];
+  const ctx = canvas.getContext("2d"), size = canvas.width;
+  // Three times the displayed image scale; stay opposite the active corner.
+  const sample = 120 * img.naturalWidth / Math.max(1, img.getBoundingClientRect().width) / 3;
+  ctx.fillStyle = "#263244";
+  ctx.fillRect(0, 0, size, size);
+  ctx.drawImage(img, x - sample / 2, y - sample / 2, sample, sample, 0, 0, size, size);
+  ctx.strokeStyle = "#ffcf33"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(size/2, 0); ctx.lineTo(size/2, size);
+  ctx.moveTo(0, size/2); ctx.lineTo(size, size/2); ctx.stroke();
+  canvas.style.left = x > img.naturalWidth / 2 ? "10px" : "auto";
+  canvas.style.right = x > img.naturalWidth / 2 ? "auto" : "10px";
+  canvas.classList.remove("hidden");
+}
+
+async function detectCrop() {
+  const img = $("viewImg"), pageId = viewId, version = cropVersion, src = img.src;
+  if (!pageId || viewBusy || img.classList.contains("loading") || cropPoints.length !== 4) return;
+  const request = ++detectRequest;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  const current = () => request === detectRequest && pageId === viewId && version === cropVersion && src === img.src && isViewOpen();
+  $("cropDetectStatus").textContent = "正在识别；也可直接拖动四角…";
+  try {
+    const r = await fetch(`/api/job/${state.jobId}/page/${pageId}/detect-corners`, {method: "POST", signal: controller.signal});
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.detail || "识别失败");
+    if (!current()) return;
+    if (!j.detected) {
+      $("cropDetectStatus").textContent = "未找到可靠边框，已保留当前角点，请手动调整";
+      return;
+    }
+    if (!Array.isArray(j.points) || j.points.length !== 4 || j.points.some(p => !Array.isArray(p) || p.length !== 2 || p.some(v => !Number.isFinite(v) || v < 0 || v > 1))) throw new Error("角点数据无效");
+    cropPoints = j.points.map(([x,y]) => [x * img.naturalWidth, y * img.naturalHeight]);
+    renderCrop();
+    $("cropDetectStatus").textContent = "已建议四角，可手动微调；点击“确认裁剪”才会保存";
+  } catch (e) {
+    if (current()) $("cropDetectStatus").textContent = "自动识别失败或超时，仍可手动框选";
+  } finally { clearTimeout(timer); }
+}
 
 const isViewOpen = () => !!viewModal && !viewModal.classList.contains("hidden");
 const pageIndexOf = (id) => state.pages.findIndex((p) => p.id === id);
@@ -214,10 +270,16 @@ function closeView() {
   if (viewBusy) return;
   if (!viewModal) return;
   viewModal.classList.add("hidden");
+  stopCropDrag();
+  cropVersion++;
   viewId = null;
 }
 
 function loadView() {
+  stopCropDrag();
+  cropVersion++;
+  cropPoints = [];
+  $("cropDetectStatus").textContent = "";
   const i = pageIndexOf(viewId);
   if (i < 0) return closeView();
   const p = state.pages[i];
@@ -247,6 +309,8 @@ function initCrop() {
   cropPoints = [[w*m,h*m],[w*(1-m),h*m],[w*(1-m),h*(1-m)],[w*m,h*(1-m)]];
   layer.classList.remove("hidden");
   renderCrop();
+  const page = state.pages[pageIndexOf(viewId)];
+  if ($("cropAutoEnabled").checked && page && !page.shared_image) detectCrop();
 }
 
 function renderCrop() {
@@ -260,14 +324,18 @@ function renderCrop() {
 }
 
 function cropPointer(e) {
-  if (cropDragging < 0) return;
+  if (cropDragging < 0 || e.pointerId !== cropPointerId) return;
   const img = $("viewImg"), r = img.getBoundingClientRect();
   cropPoints[cropDragging] = [Math.max(0, Math.min(img.naturalWidth, (e.clientX-r.left)/r.width*img.naturalWidth)), Math.max(0, Math.min(img.naturalHeight, (e.clientY-r.top)/r.height*img.naturalHeight))];
   renderCrop();
+  renderMagnifier();
 }
 
 async function saveCrop(reset = false) {
   const i = pageIndexOf(viewId); if (i < 0 || viewBusy) return;
+  if (!reset && ($("viewImg").classList.contains("loading") || cropPoints.length !== 4)) return;
+  cropVersion++;
+  stopCropDrag();
   viewBusy = true;
   try {
     const img = $("viewImg");
@@ -279,10 +347,25 @@ async function saveCrop(reset = false) {
   } catch(e) { $("viewSub").textContent=e.message; } finally { viewBusy=false; }
 }
 
-document.querySelectorAll(".crop-handle").forEach(el=>el.addEventListener("pointerdown",e=>{e.preventDefault(); cropDragging=Number(el.dataset.corner); el.setPointerCapture(e.pointerId);}));
+document.querySelectorAll(".crop-handle").forEach(el=>{
+  el.addEventListener("pointerdown",e=>{
+    if (viewBusy || cropDragging >= 0 || (e.pointerType === "mouse" && e.button !== 0)) return;
+    e.preventDefault(); cropVersion++; cropDragging=Number(el.dataset.corner); cropPointerId=e.pointerId;
+    $("cropDetectStatus").textContent = "手动调整中，点击“确认裁剪”保存";
+    el.setPointerCapture(e.pointerId); renderMagnifier();
+  });
+  el.addEventListener("lostpointercapture", e => { if (e.pointerId === cropPointerId) stopCropDrag(); });
+});
 $("cropLayer").addEventListener("pointermove", cropPointer);
-$("cropLayer").addEventListener("pointerup", ()=>{cropDragging=-1;});
-$("cropLayer").addEventListener("pointercancel", ()=>{cropDragging=-1;});
+$("cropLayer").addEventListener("pointerup", e => { if (e.pointerId === cropPointerId) stopCropDrag(); });
+$("cropLayer").addEventListener("pointercancel", e => { if (e.pointerId === cropPointerId) stopCropDrag(); });
+$("cropMagnifyEnabled").addEventListener("change", renderMagnifier);
+$("cropDetect").addEventListener("click", detectCrop);
+$("cropAutoEnabled").addEventListener("change", () => {
+  cropVersion++;
+  $("cropDetectStatus").textContent = "";
+  if ($("cropAutoEnabled").checked) detectCrop();
+});
 $("cropSave").addEventListener("click", () => saveCrop(false));
 $("cropReset").addEventListener("click", () => saveCrop(true));
 window.addEventListener("resize", () => { if (isViewOpen() && cropPoints.length) renderCrop(); });
@@ -335,6 +418,8 @@ function stepView(delta) {
 async function rotateView(delta) {
   const i = pageIndexOf(viewId);
   if (i < 0 || viewBusy) return;
+  cropVersion++;
+  stopCropDrag();
   const p = state.pages[i];
   const angle = (((Number(p.rotate) || 0) + delta) % 360 + 360) % 360;
   viewBusy = true;

@@ -139,7 +139,14 @@
         <button class="btn primary small" id="viewCloseBtn" type="button">完成</button>
       </div>
     </div>
+    <div class="view-foot crop-options">
+      <label><input id="cropMagnifyEnabled" type="checkbox" checked> 角点放大镜</label>
+      <label><input id="cropAutoEnabled" type="checkbox" checked> 打开未裁剪图片时自动框选四角</label>
+      <button class="btn ghost small" id="cropDetect" type="button">重新识别四角</button>
+      <span id="cropDetectStatus" role="status" aria-live="polite"></span>
+    </div>
     <div class="view-stage" id="viewStage">
+      <canvas id="cropMagnifier" class="crop-magnifier hidden" width="240" height="240" aria-label="当前角点放大预览"></canvas>
       <button class="view-arrow left" id="viewPrev" type="button" aria-label="上一张">‹</button>
       <img id="viewImg" alt="图片预览">
       <div class="crop-layer hidden" id="cropLayer">
