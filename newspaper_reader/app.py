@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import threading
 import time
@@ -181,6 +182,7 @@ def _doc_title(iss: dict, k: int = 0, total: int = 1) -> str:
 def health() -> dict:
     return {
         "ok": True,
+        "offline": os.environ.get("PIC_READ_OFFLINE") == "1",
         "tesseract": Path(config.TESSERACT_CMD).exists(),
         "lang": config.OCR_LANG,
         "runtime": str(config.RUNTIME_DIR),

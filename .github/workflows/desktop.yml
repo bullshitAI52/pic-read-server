@@ -1,0 +1,59 @@
+name: Build offline installers
+on:
+  workflow_dispatch:
+  push:
+    tags: ['desktop-v*']
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: Windows-x64
+          - os: macos-15
+            label: macOS-AppleSilicon
+          - os: macos-15-intel
+            label: macOS-Intel
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r requirements-desktop.txt
+      - name: Build application
+        run: python -m PyInstaller --noconfirm --windowed --name PicReadOffline --add-data "newspaper_reader/web/static:newspaper_reader/web/static" --collect-all webview --collect-all reportlab --hidden-import uvicorn.logging --hidden-import uvicorn.loops.auto --hidden-import uvicorn.protocols.http.auto --hidden-import uvicorn.protocols.websockets.auto --hidden-import uvicorn.lifespan.on desktop.py
+      - name: Test packaged application (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $p = Start-Process dist/PicReadOffline/PicReadOffline.exe -ArgumentList '--smoke-test' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Packaged application failed" }
+      - name: Build Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging/installer.iss'
+      - name: Test and build Mac disk image
+        if: runner.os == 'macOS'
+        run: |
+          dist/PicReadOffline.app/Contents/MacOS/PicReadOffline --smoke-test
+          mkdir -p dist/dmg
+          cp -R dist/PicReadOffline.app dist/dmg/
+          ln -s /Applications dist/dmg/Applications
+          hdiutil create -volname 'PicRead Offline' -srcfolder dist/dmg -ov -format UDZO dist/PicRead-Offline-${{ matrix.label }}.dmg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PicRead-Offline-${{ matrix.label }}
+          path: |
+            dist/*Setup.exe
+            dist/*.dmg
+          if-no-files-found: error
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist/*Setup.exe
+            dist/*.dmg

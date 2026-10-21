@@ -1,4 +1,5 @@
 const $ = (id) => document.getElementById(id);
+let offlineDesktop = false;
 
 const READ_W = (window.devicePixelRatio || 1) > 1.5 ? 2000 : 1600;
 
@@ -56,6 +57,15 @@ async function checkHealth() {
   try {
     const r = await fetch("/api/health");
     const j = await r.json();
+    offlineDesktop = !!j.offline;
+    if (offlineDesktop) {
+      document.body.classList.add('offline-desktop');
+      document.querySelector('h1').textContent = '高清图片裁剪 · 离线版';
+      document.querySelector('.tagline').textContent = '本地上传、四角裁剪、高清 PNG 保存，无需网络';
+      document.querySelector('.steps-label').textContent = '上传图片 → 四角裁剪 → 保存高清 PNG';
+      document.querySelector('.opt-hint').textContent = '照片在本机处理。裁剪后点击保存，选择文件夹；请将重要图片另存到自己的目录。';
+      document.querySelector('footer p').textContent = '离线版只在本机处理图片，不提供公网分享链接。工作缓存保留 7 天，请及时另存高清图片。';
+    }
     if (j.ok) {
       b.textContent = "图片服务就绪";
       b.className = "badge ok";
@@ -284,8 +294,19 @@ function showImageShare(page) {
   if (!share) return;
   $("imageShareUrl").value = new URL(share.url, location.origin).href;
   $("imageDownload").href = share.url + "?download=true";
+  $("imageDownload").textContent = offlineDesktop ? '保存高清图片到电脑' : '下载高清图片';
   $("imageShareInfo").textContent = `已保存高清 PNG · ${share.width} × ${share.height} 像素 · ${(share.bytes / 1048576).toFixed(2)} MB`;
 }
+
+$("imageDownload").addEventListener('click', async (event) => {
+  if (!offlineDesktop) return;
+  event.preventDefault();
+  try {
+    const share = state.pages[pageIndexOf(viewId)].shared_image;
+    const result = await window.pywebview.api.save_image(share.url.split('/').pop());
+    $("imageCopyStatus").textContent = result.saved ? '已保存到选择的位置' : result.error || '已取消保存';
+  } catch (_) { $("imageCopyStatus").textContent = '保存失败，请重试'; }
+});
 
 $("imageCopy").addEventListener("click", async () => {
   const field = $("imageShareUrl");
