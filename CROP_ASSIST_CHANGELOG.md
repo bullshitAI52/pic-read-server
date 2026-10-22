@@ -1,5 +1,22 @@
 # 裁剪辅助更新 / Crop assistance update
 
+## 2026-10-22：手机操作与下载修复
+
+- 四角触控范围固定为屏幕上的 48 × 48 像素，不再随高分辨率图片缩成小点；画面保持原图比例。
+- 主要按钮高度至少 48 像素，窄屏自动分行；角点周围留出拖动空间，放大镜继续可用。
+- 拖动时保留手指与角点的初始偏移，避免按到触控区边缘时角点跳动；取消或失去触控捕获时释放拖动。
+- 裁剪前检查交叉、重合、内凹和过小选框，给出可操作的错误说明。
+- 生成 PNG 成功后才提供真实下载链接，链接在当前结果有效期间保留；增加“打开图片／长按保存”手机备用入口。
+- 大图导入上限为 1600 万像素、单边 8192 像素，超过限制提示用户，不自动降低分辨率。自动找边先在小预览上进行，释放轮廓对象，降低内存开销。
+- 恢复原图会恢复初始方向；旋转不再覆盖保留的原图。
+- 在 390px 窄屏实测角点为 48px，拖动后成功裁剪、生成并下载 PNG；旋转后尺寸从 1200×900 变为 900×1200，恢复后回到 1200×900。不是对所有实体手机浏览器的兼容性保证。
+
+### English
+
+Mobile handles now retain a 48px touch area regardless of source-image resolution. Buttons wrap without vertical text, and the preview preserves aspect ratio. Dragging keeps the initial finger offset and releases on lost pointer capture. Crop validation rejects crossed, coincident, concave, tiny, or oversized selections. A PNG is encoded before persistent download/open-image links become available, allowing a long-press save fallback on mobile. Rotation no longer overwrites the original. Detection runs on a reduced-size canvas with contour cleanup. Images over 16 megapixels or 8192px per side are rejected explicitly rather than silently resized.
+
+Verified in a 390px browser viewport: 48px handles, drag/crop/download flow, and rotation/reset dimensions. Actual physical-phone compatibility remains device-dependent.
+
 ## 发布范围
 
 本次仅同步到独立分支 `feature/crop-assist`。没有部署 VPS、合并主分支、创建版本标签或替换已有安装包。原版与新分支分别保留。

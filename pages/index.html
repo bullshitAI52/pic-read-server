@@ -25,6 +25,7 @@
     </section>
 
     <p id="status" class="status" role="status" aria-live="polite">正在加载图片处理组件…</p>
+    <p class="crop-tip">拖动四个蓝色角点对准纸边，放大镜会显示细节；调好后点“确认裁剪”。</p>
 
     <section class="workspace">
       <div id="stage" class="stage empty">
@@ -45,17 +46,19 @@
         <canvas id="resultCanvas"></canvas>
         <div class="result-actions">
           <span id="resultInfo"></span>
-          <button id="downloadBtn" class="primary">下载高清 PNG</button>
+          <a id="downloadBtn" class="download-link primary" download>下载高清 PNG</a>
+          <a id="openImageBtn" class="download-link" target="_blank" rel="noopener">打开图片／长按保存</a>
         </div>
       </aside>
     </section>
 
     <footer>
       <p>图片只在当前浏览器中处理，不上传服务器。自动识别可能受背景、反光或弯曲纸张影响，请检查四角后再确认。</p>
-      <p><a href="https://github.com/bullshitAI52/pic-read-server/tree/feature/crop-assist">源代码与更新说明</a></p>
+      <p><a href="https://github.com/bullshitAI52/pic-read-server/tree/feature/crop-assist">源代码与更新说明</a> · 手机触控修复版 2026-10-22</p>
     </footer>
   </main>
   <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+  <script src="crop-geometry.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
