@@ -1,5 +1,13 @@
 # Telegram 四角裁剪 / Telegram perspective cropper
 
+## 已部署 / Deployment — 2026-10-24
+
+- 机器人 / Bot：[Pic_1234567_bot](https://t.me/Pic_1234567_bot)
+- 独立 HTTPS 页面：[pic-tg.shuanghai.shop:2087](https://pic-tg.shuanghai.shop:2087/)。标准域名入口自动跳转至独立端口，避免占用现有服务的 443 端口。
+- 网关已启动、HTTPS 与 OpenCV 加载已检查，未登录接口返回 401；真实 Telegram 内「发图—四角拖动—回传」仍需用户首次验收。
+- Existing GitHub Pages, main branch, and original VPS application remain unchanged. The gateway runs separately; real Telegram end-to-end acceptance is still pending.
+- 运维：独立 `pic-tg` 服务、`/opt/pic-tg` 程序目录；密钥仅在服务器受限权限环境文件中，不入仓库。证书已配置自动续期和 Nginx 平滑重载。
+
 给机器人发图 → 点「调整四角」→ 用手指对准四个角 → 确认裁剪 → 点「发回 Telegram 高清图片」。返回 PNG 文件，不以聊天照片方式再次压缩。每个任务只能成功回传一次；想处理另一版，请重新给机器人发图。
 
 这是独立的机器人网关，复用 `pages/` 的四角、放大镜、透视拉正功能。不改 main、旧 VPS 服务或桌面安装包。普通 GitHub Pages 页面照常本地处理；**GitHub Pages 不能运行机器人后端**。
