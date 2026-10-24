@@ -272,3 +272,6 @@ python newspaper_reader/test/smoke_scan.py      # 转换接口冒烟
 ## 许可
 
 MIT License，见 [LICENSE](LICENSE)。
+# Telegram 四角裁剪（可选接入）
+
+新增「发图给机器人 → 手机拖动四角 → 透视拉正 → 发回高清 PNG」网关。代码已提供，需配置专用 Bot Token 和 HTTPS 服务后才能使用；不是已上线的机器人。普通网页版不受影响。[中英文使用与部署说明](telegram/README.md)。

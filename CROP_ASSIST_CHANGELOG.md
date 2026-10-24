@@ -88,3 +88,9 @@ Live browser edition: [https://bullshitai52.github.io/pic-read-server/](https://
 - Detection is heuristic. Low contrast, glare, curved pages, or competing rectangles may produce missing or incorrect suggestions. Always check the proposed corners. Options are not persisted across restarts in this revision.
 
 Five Python regression tests and isolated JavaScript interaction-logic checks passed, along with syntax/compile/whitespace checks. Physical mobile touch, a real-photo evaluation set, and interactive Windows/macOS installer tests have not been completed. No new installers were built for this branch.
+# 2026-10-24：可选 Telegram 接入
+
+- 机器人私聊收图，通过 Mini App 复用四角拖动、放大镜和透视裁剪。
+- 一键以 PNG 文件回传，不二次压缩；任务隔离、登录签名校验、一小时过期和重复发送保护。
+- 新增独立 `telegram/` 服务、中英文说明和模拟测试。普通 Pages 不加载 TG SDK。
+- 尚未配置真实机器人或部署网关；main、原 VPS 与安装包未修改。
