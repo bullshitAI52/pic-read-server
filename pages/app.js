@@ -14,12 +14,13 @@ function clearResult(){
 function status(text, error=false){$("status").textContent=text;$("status").style.color=error?"#b42318":""}
 function setButtons(enabled){["rotateBtn","resetBtn"].forEach(id=>$(id).disabled=!enabled);["detectBtn","cropBtn"].forEach(id=>$(id).disabled=!enabled||!cvReady)}
 function waitForCv(){
-  const started=Date.now(), timer=setInterval(async()=>{
+  let warned=false;
+  const started=Date.now(), timer=setInterval(()=>{
     if(window.cv){
-      try{window.cv=window.cv instanceof Promise?await window.cv:window.cv;if(cv.Mat){clearInterval(timer);cvReady=true;setButtons(!!original);status(original?"可以拖动四角，调好后确认裁剪":"处理组件已就绪，请选择图片");if(original&&$("autoDetect").checked&&dragging<0)detectCorners()}}
+      try{if(cv.Mat){clearInterval(timer);cvReady=true;setButtons(!!original);status(original?"可以拖动四角，调好后确认裁剪":"处理组件已就绪，请选择图片");if(original&&$("autoDetect").checked&&dragging<0)detectCorners();return}if(window.cv instanceof Promise&&!window.cvResolving){window.cvResolving=true;window.cv.then(value=>{window.cv=value;window.cvResolving=false}).catch(()=>{window.cvResolving=false})}}
       catch(_){/* keep waiting */}
     }
-    if(Date.now()-started>30000){clearInterval(timer);status("图片处理组件加载失败，请检查网络后刷新页面",true)}
+    if(!warned&&Date.now()-started>30000){warned=true;status("图片处理组件仍在加载，加载完成后会自动启用裁剪；如长时间无响应，请刷新页面",true)}
   },200);
 }
 waitForCv();

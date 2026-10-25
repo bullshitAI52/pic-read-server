@@ -1,0 +1,23 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const path=require('node:path');
+test('slow OpenCV initialization still enables cropping after timeout',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'../app.js'),'utf8');
+  const fn=source.slice(source.indexOf('function waitForCv(){'),source.indexOf('\nwaitForCv();'));
+  let tick, now=0, cleared=false, enabled=false;
+  const messages=[];
+  const window={};
+  const context={window,Date:{now:()=>now},setInterval:f=>{tick=f;return 1},clearInterval:()=>{cleared=true},status:t=>messages.push(t),setButtons:v=>{enabled=v},original:{},dragging:-1,cvReady:false,$:()=>({checked:false})};
+  vm.createContext(context);
+  vm.runInContext(fn+';waitForCv();',context);
+  now=31000;tick();
+  assert.equal(cleared,false);
+  assert.match(messages[0],/仍在加载/);
+  window.cv=context.cv={Mat:function(){},then:()=>{throw Error('Do not resolve an initialized thenable')}};
+  tick();
+  assert.equal(context.cvReady,true);
+  assert.equal(enabled,true);
+  assert.equal(cleared,true);
+});
