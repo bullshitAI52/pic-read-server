@@ -46,8 +46,29 @@ class GatewayTests(unittest.TestCase):
             self.assertEqual(self.client.post("/api/jobs/test/result",headers=headers,content=b"not an image").status_code,400)
             for _ in range(2):
                 self.assertEqual(self.client.post("/api/jobs/test/result",headers=headers,content=buf.getvalue()).status_code,200)
-            self.assertEqual(api.await_count,1)
-            self.assertEqual(api.call_args.args[0],"sendDocument")
+            self.assertEqual(api.await_count,2)
+            self.assertEqual([c.args[0] for c in api.call_args_list],["sendDocument","sendPhoto"])
+            self.assertEqual(api.call_args_list[0].args[2]["document"][1],buf.getvalue())
+
+    def test_partial_send_retries_photo_only(self):
+        import asyncio
+        server.jobs["test"] = {"uid":42,"chat":42,"expires":time.time()+100,"sent":False,"lock":asyncio.Lock()}
+        buf=io.BytesIO(); Image.new("RGB",(100,100)).save(buf,"PNG")
+        with patch.object(server,"api",new_callable=AsyncMock) as api:
+            api.side_effect=[{},RuntimeError("network"),{}]
+            headers={"X-Telegram-Init-Data":signed()}
+            self.assertEqual(self.client.post("/api/jobs/test/result",headers=headers,content=buf.getvalue()).status_code,502)
+            self.assertEqual(self.client.post("/api/jobs/test/result",headers=headers,content=buf.getvalue()).status_code,200)
+            self.assertEqual([c.args[0] for c in api.call_args_list],["sendDocument","sendPhoto","sendPhoto"])
+
+    def test_album_preview(self):
+        buf=io.BytesIO(); Image.new("RGBA",(8000,50),(0,0,0,0)).save(buf,"PNG")
+        data=server.photo_preview(buf.getvalue())
+        with Image.open(io.BytesIO(data)) as im:
+            self.assertEqual(im.format,"JPEG")
+            self.assertLessEqual(max(im.size),2400)
+            self.assertLessEqual(max(im.size)/min(im.size),20)
+            self.assertEqual(im.getpixel((0,0)),(255,255,255))
 
     def test_image_limits(self):
         buf=io.BytesIO(); Image.new("RGB",(20,20)).save(buf,"PNG")

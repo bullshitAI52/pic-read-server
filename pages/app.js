@@ -3,9 +3,10 @@ const $ = id => document.getElementById(id);
 const source = $("sourceCanvas"), output = $("resultCanvas"), stage = $("stage"), overlay = $("cropOverlay");
 const ctx = source.getContext("2d", {willReadFrequently:true});
 let original = null, points = [], dragging = -1, pointerId = null, cvReady = false;
-let resultUrl=null, resultVersion=0, dragOffset=[0,0], loadVersion=0;
+let resultUrl=null, resultFile=null, resultVersion=0, dragOffset=[0,0], loadVersion=0;
 function clearResult(){
   resultVersion++;$("resultPanel").classList.add("hidden");
+  resultFile=null;
   if(resultUrl){URL.revokeObjectURL(resultUrl);resultUrl=null;}
   $("downloadBtn").removeAttribute("href");$("openImageBtn").removeAttribute("href");
   setButtons(!!original);
@@ -97,6 +98,7 @@ function crop(){
       if(!blob){status("图片生成失败，可能是手机内存不足，请换一张较小图片重试",true);return;}
       resultUrl=URL.createObjectURL(blob);$("downloadBtn").href=resultUrl;$("openImageBtn").href=resultUrl;
       $("downloadBtn").download=`cropped-hd-${Date.now()}.png`;
+      resultFile=new File([blob],$("downloadBtn").download,{type:"image/png"});
       $("resultInfo").textContent=`${w} × ${h} 像素 · ${(blob.size/1048576).toFixed(2)} MB`;
       $("resultPanel").classList.remove("hidden");$("resultPanel").scrollIntoView({behavior:"smooth",block:"start"});
       status("高清图片已准备好，可直接下载；手机也可以打开图片后长按保存");
@@ -108,3 +110,13 @@ function rotate(){if(!original)return;stopDrag();clearResult();const tmp=documen
 function reset(){if(!original)return;stopDrag();clearResult();source.width=original.width;source.height=original.height;ctx.drawImage(original,0,0);points=defaultPoints();fitOverlay();status("已恢复原图和原始方向，可重新调整四角")}
 
 $("fileInput").addEventListener("change",e=>{loadFile(e.target.files[0]);e.target.value="";});$("detectBtn").addEventListener("click",detectCorners);$("cropBtn").addEventListener("click",crop);$("rotateBtn").addEventListener("click",rotate);$("resetBtn").addEventListener("click",reset);
+$("shareImageBtn").addEventListener("click",async()=>{
+  if(!resultFile)return;
+  try{
+    if(!navigator.canShare||!navigator.canShare({files:[resultFile]})){
+      status("此浏览器不支持系统保存，请发回 Telegram 保存照片，或用 Safari 打开网页重新裁剪。",true);return;
+    }
+    await navigator.share({files:[resultFile]});
+    status("分享面板已关闭，请在相册或文件中确认是否保存成功。");
+  }catch(e){if(e.name!=="AbortError")status("系统分享不可用，请使用发回 Telegram，或在 Safari 中重新处理。",true)}
+});

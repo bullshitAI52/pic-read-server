@@ -30,8 +30,15 @@
     const blob = await response.blob();
     await loadFile(new File([blob], "telegram-image", {type: blob.type}));
     const send = document.createElement("button");
-    send.className = "primary"; send.textContent = "发回 Telegram 高清图片";
+    send.className = "primary"; send.textContent = "发回 TG 保存（照片＋高清文件）";
     document.querySelector(".result-actions").appendChild(send);
+    const download = document.getElementById("downloadBtn");
+    download.textContent = "保存图片到 TG（含高清文件）";
+    download.addEventListener("click", event => {
+      event.preventDefault();
+      if (!send.disabled) send.click();
+    });
+    document.getElementById("openImageBtn").classList.add("hidden");
     send.addEventListener("click", async () => {
       const url = document.getElementById("downloadBtn").getAttribute("href");
       if (!url) return;
@@ -40,7 +47,7 @@
         const result = await (await fetch(url)).blob();
         await checked(await fetch(`${endpoint}/result`, {method: "POST", headers, body: result}));
         send.textContent = "已发回 TG（重新处理请再发一张图）";
-        status("高清 PNG 已发回机器人聊天，也可在这里下载。");
+        status("照片和高清 PNG 已发回聊天。照片用于保存相册；PNG 文件保留原分辨率。若仍无法保存，请检查手机的 Telegram 照片权限。");
       } catch (error) {
         send.disabled = false; send.textContent = "重试发送到 TG";
         status(error.message, true);

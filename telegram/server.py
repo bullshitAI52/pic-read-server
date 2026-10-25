@@ -2,6 +2,8 @@
 import asyncio
 import contextlib
 import io
+import hashlib
+import math
 import json
 import logging
 import os
@@ -175,12 +177,35 @@ async def result(key: str, request: Request):
             if len(data) > MAX_BYTES:
                 raise HTTPException(413, "PNG 超过 20 MB，请直接下载保存")
         await asyncio.to_thread(check_image, data, True)
+        digest = hashlib.sha256(data).hexdigest()
+        if job.get("result_digest") and job["result_digest"] != digest:
+            raise HTTPException(409, "已有部分结果发回聊天，请重新发原图创建新任务")
         try:
-            await api("sendDocument", {"chat_id": job["chat"], "caption": "四角透视拉正 · 原分辨率 PNG"}, {"document": ("cropped-hd.png", bytes(data), "image/png")})
+            if not job.get("document_sent"):
+                await api("sendDocument", {"chat_id": job["chat"], "caption": "高清原文件：原分辨率 PNG，可通过分享菜单存储到文件。下面另发可保存相册的照片。"}, {"document": ("cropped-hd.png", bytes(data), "image/png")})
+                job["document_sent"] = True
+                job["result_digest"] = digest
+            preview = await asyncio.to_thread(photo_preview, data)
+            await api("sendPhoto", {"chat_id": job["chat"], "caption": "相册版：点开照片，通过菜单保存图片。此版可能被 TG 压缩；高清请用上方 PNG 文件。保存失败时请检查 Telegram 照片权限。"}, {"photo": ("cropped-photo.jpg", preview, "image/jpeg")})
         except Exception:
-            raise HTTPException(502, "发送未确认，请先查看聊天；若未收到再重试")
+            raise HTTPException(502, "发送未全部确认，请先查看聊天；可重试补发照片（已确认的高清文件不会重复发送）")
         job["sent"] = True
         return {"ok": True}
+
+
+def photo_preview(data):
+    """Album-friendly JPEG; keep the original PNG unchanged in sendDocument."""
+    with Image.open(io.BytesIO(data)) as original:
+        original.thumbnail((2400, 2400))
+        rgba = original.convert("RGBA")
+        w, h = rgba.size
+        # Telegram rejects extremely narrow photos; pad only the album copy.
+        width, height = max(w, math.ceil(h/19)), max(h, math.ceil(w/19))
+        canvas = Image.new("RGB", (width, height), "white")
+        canvas.paste(rgba, ((width-w)//2, (height-h)//2), rgba)
+        output = io.BytesIO()
+        canvas.save(output, "JPEG", quality=92)
+        return output.getvalue()
 
 
 app.mount("/", StaticFiles(directory=Path(__file__).resolve().parents[1]/"pages", html=True), name="pages")
